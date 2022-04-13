@@ -32,12 +32,12 @@ def load_data(filename, add_sql_symbol=False, add_query_symbol=True):
     # Add symbol tokens to sql or query
     if add_sql_symbol or add_query_symbol:
         for ex in examples:
-            if add_sql_symbol:
-                ex['src'] = [bos] + ex['src']
-                ex['src'] = ex['src'] + [eos]
             if add_query_symbol:
-                ex['trg'] = [bos] + ex['trg']
-                ex['trg'] = ex['trg'] + [eos]
+                ex['source_text'] = bos + ex['source_text']
+                ex['source_text'] = ex['source_text'] + eos
+            if add_sql_symbol:
+                ex['target_text'] = bos + ex['target_text']
+                ex['target_text'] = ex['target_text'] + eos
                 
     return examples
   
@@ -47,8 +47,8 @@ def build_vocab(exs, args):
     src_lines, tgt_lines = [], []
     
     for ex in exs:
-        src_lines.append(ex['src'])
-        tgt_lines.append(ex['trg'])
+        src_lines.append(ex['source_text'])
+        tgt_lines.append(ex['target_text'])
         
     vocab = Vocab(
         src_lines + tgt_lines, 

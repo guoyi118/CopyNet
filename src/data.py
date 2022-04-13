@@ -16,9 +16,15 @@ class Vocab(object):
             '<pad>': 0, 
             '<s>': 1, 
             '</s>': 2, 
-            '<unk>': 3}
+            '<unk>': 3,
+            '<tbl>':4,
+            '</tbl>':5,
+            '<col>':6,
+            '</col>':7
+            }
+
         for idx, word in enumerate(self.vocab):
-            self.word2id[word] = idx + 4
+            self.word2id[word] = idx + 7
         self.id2word = {idx: word for word, idx in self.word2id.items()}
         
     @staticmethod
@@ -43,6 +49,14 @@ class Vocab(object):
             del vocab['</s>']
         if '<unk>' in vocab:
             del vocab['<unk>']
+        if '<tbl>' in vocab:
+            del vocab['<tbl>']
+        if '</tbl>' in vocab:
+            del vocab['</tbl>']
+        if '<col>' in vocab:
+            del vocab['<col>']
+        if '</col>' in vocab:
+            del vocab['</col>']
         
         sorted_word2id = sorted(
             vocab.items(), 
@@ -61,7 +75,7 @@ class Vocab(object):
         tokens.
         """
         tokens = [k for k in self.word2id.keys()
-                  if k not in {'<pad>', '<unk>', '<s>', '</s>'}]
+                  if k not in {'<pad>', '<unk>', '<s>', '</s>','<tbl>', '</tbl>', '</col>', '<col>'}]
         return tokens
     
     
@@ -79,8 +93,8 @@ class SequencePairDataset(Dataset):
     def __getitem__(self, idx):
         """ Vectorize a single example. """
         example = self.examples[idx]
-        input_token_list = example['src'][:self.max_length]
-        output_token_list = example['trg'][:self.max_length]
+        input_token_list = example['source_text'][:self.max_length]
+        output_token_list = example['target_text'][:self.max_length]
         
         # input_token_list = [self.vocab.normalize(token) for token in input_token_list]
         # output_token_list = [self.vocab.normalize(token) for token in output_token_list]

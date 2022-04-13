@@ -15,7 +15,8 @@ class EncoderRNN(nn.Module):
 
         self.embedding = nn.Embedding(input_size, self.embedding_size)
         self.embedding.weight.data.normal_(0, 1 / self.embedding_size**0.5)
-        self.gru = nn.GRU(embedding_size, hidden_size, bidirectional=True, batch_first=True)
+        self.gru = nn.GRU(embedding_size, hidden_size, bidirectional=True, batch_first=True, num_layers=5)
+        # self.lstm = nn.LSTM(embedding_size, hidden_size, bidirectional=True, batch_first=True, num_layers=1)
 
     def forward(self, iput, hidden, lengths):
         # iput batch must be sorted by sequence length
@@ -23,12 +24,14 @@ class EncoderRNN(nn.Module):
         embedded = self.embedding(iput)
         packed_embedded = torch.nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         self.gru.flatten_parameters()
+        # self.lstm.flatten_parameters()
         output, hidden = self.gru(packed_embedded, hidden)
+        # output, hidden = self.lstm(packed_embedded, hidden)
         output, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
         return output, hidden
 
     def init_hidden(self, batch_size):
-        hidden = Variable(torch.zeros(2, batch_size, self.hidden_size))  # bidirectional rnn
+        hidden = Variable(torch.zeros(10, batch_size, self.hidden_size))  # bidirectional rnn
         if next(self.parameters()).is_cuda:
             return hidden.cuda()
         else:
@@ -53,7 +56,9 @@ class CopyNetDecoder(nn.Module):
         self.attn_W = nn.Linear(self.hidden_size, self.hidden_size)
         self.copy_W = nn.Linear(self.hidden_size, self.hidden_size)
 
-        self.gru = nn.GRU(2 * self.hidden_size + self.embedding.embedding_dim, self.hidden_size, batch_first=True)  # input = (context + selective read size + embedding)
+        self.gru = nn.GRU(2 * self.hidden_size + self.embedding.embedding_dim, self.hidden_size, batch_first=True, num_layers=1)  # input = (context + selective read size + embedding)
+        # self.lstm = nn.LSTM(2 * self.hidden_size + self.embedding.embedding_dim, self.hidden_size, batch_first=True, num_layers=1)  # input = (context + selective read size + embedding)
+        
         self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, encoder_outputs, inputs, final_encoder_hidden, targets=None, keep_prob=1.0, teacher_forcing=0.0):
@@ -181,7 +186,9 @@ class CopyNetDecoder(nn.Module):
             rnn_input *= dropout_mask
 
         self.gru.flatten_parameters()
+        # self.lstm.flatten_parameters()
         output, hidden = self.gru(rnn_input, prev_hidden)  # state.shape = [b, 1, hidden]
+        # output, hidden = self.lstm(rnn_input, prev_hidden)  # state.shape = [b, 1, hidden]
 
         # Copy mechanism
         transformed_hidden2 = self.copy_W(output).view(batch_size, self.hidden_size, 1)
@@ -243,7 +250,8 @@ class AttentionDecoder(nn.Module):
         self.embedding.weight.data[0, :] = 0.0
 
         self.attn_W = nn.Linear(self.hidden_size, self.hidden_size)
-        self.gru = nn.GRU(self.hidden_size + self.embedding_size, self.hidden_size, batch_first=True)
+        self.gru = nn.GRU(self.hidden_size + self.embedding_size, self.hidden_size, batch_first=True, num_layers=1)
+        # self.lstm = nn.LSTM(self.hidden_size + self.embedding_size, self.hidden_size, batch_first=True, num_layers=1) 
         self.out = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, encoder_outputs, inputs, final_encoder_hidden, targets=None, keep_prob=1.0, teacher_forcing=0.0):
@@ -318,6 +326,7 @@ class AttentionDecoder(nn.Module):
             rnn_input *= dropout_mask
 
         output, hidden = self.gru(rnn_input, prev_hidden)
+        # output, hidden = self.lstm(rnn_input, prev_hidden)
 
         output = self.out(output.squeeze(1))  # linear transformation to output size
         output = F.log_softmax(output, dim=1)  # log softmax non-linearity to convert to log probabilities

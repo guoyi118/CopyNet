@@ -1,16 +1,16 @@
 python src/train.py \
-    --num-epochs 40 \
-    --batch-size 32 \
+    --num-epochs 200 \
+    --batch-size 64 \
     --dev-batch-size 64 \
-    --train-file train_processed.jsonl \
-    --dev-file dev_processed.jsonl \
+    --train-file /home/sdq/GitHub/guoyi/sparqling-queries/data/break/logical-forms-fixed/train_data_df_spider_v3_full.jsonl \
+    --dev-file /home/sdq/GitHub/guoyi/sparqling-queries/data/break/logical-forms-fixed/val_data_df_spider_v3_full.jsonl \
     --embedding-file glove.840B.300d.txt \
     --display-samples True \
-    --max-length 50 \
+    --max-length 256 \
     --decoder-type 'copy' \
     --fix-embeddings False \
     --optimizer adam \
     --vocab-limit 30000 \
     --use-extended-vocab True \
     --hidden-size 64 \
-    --gpu 6 \
+    --gpu 0 \

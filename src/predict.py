@@ -5,7 +5,7 @@ import torch
 import argparse
 import logging
 import json
-import jsonlines
+# import jsonlines
 import string
 
 import numpy as np
@@ -16,10 +16,10 @@ from data import SequencePairDataset
 
 from torch.utils.data import DataLoader
 
-import spacy
+# import spacy
 
-nlp = spacy.load('en_core_web_sm')
-stop_words = nlp.Defaults.stop_words
+# nlp = spacy.load('en_core_web_sm')
+# stop_words = nlp.Defaults.stop_words
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -120,23 +120,37 @@ def predict(model, data_loader):
     
     vocab = model.vocab
     results = []
+    correct = 0
+    wrong = 0
     for output_seq, target_seq, output_prob, input_seq, confused_span in zip(all_output_seqs, all_target_seqs, all_query_probs, all_input_seqs, all_confused_spans):
-        if len(confused_span) == 0:
-            continue
+        # if len(confused_span) == 0:
+        #     continue
         output_sentence = seq_to_string(np.array(output_seq), vocab.id2word, input_tokens=input_seq.split(' '))
         target_sentence = seq_to_string(np.array(target_seq[0]), vocab.id2word, input_tokens=input_seq.split(' '))
-        confused_span = seq_to_string(np.array(confused_span), vocab.id2word, input_tokens=input_seq.split(' '))
+        # confused_span = seq_to_string(np.array(confused_span), vocab.id2word, input_tokens=input_seq.split(' '))
         
         # Remove stop_words and punctuation
-        confused_span = [t for t in confused_span.split(' ') 
-                         if not (t in stop_words or string.punctuation.find(t) != -1 or t == '<s>' or t == '</s>')]
-        if len(confused_span) == 0:
-            continue
-        confused_span = ' '.join(confused_span)
-        
+        # confused_span = [t for t in confused_span.split(' ') 
+        #                  if not (t in stop_words or string.punctuation.find(t) != -1 or t == '<s>' or t == '</s>')]
+        # if len(confused_span) == 0:
+        #     continue
+        # confused_span = ' '.join(confused_span)
+        print('~~~~~~~~~')
+        print(input_seq)
+        print(output_sentence)
+        print(target_sentence)
+        print('~~~~~~~~~~')
+        if output_sentence.replace('<s>','s') == target_sentence:
+            correct +=1
+        else:
+            wrong += 1
+        print('correct',correct)
+        print('wrong',wrong)
+        print('accuracy:', correct/(wrong+correct))
+
         r = {"output_sentence": output_sentence,
              "target_sentence": target_sentence,
-             "confused_span": confused_span,
+            #  "confused_span": confused_span,
              "output_probs": ' '.join([str(p) for p in output_prob]),
              "input_sentence": input_seq}
         results.append(r)
@@ -145,8 +159,8 @@ def predict(model, data_loader):
     outfile = os.path.join(args.out_dir, modelname + '.preds')
     
     logger.info('Writing results to %s' % outfile)
-    with jsonlines.open(outfile, 'w') as f:
-        f.write_all(results)
+    # with jsonlines.open(outfile, 'w') as f:
+    #     f.write_all(results)
             
     if args.display_samples:
         for r in np.random.choice(results, 10, replace=False):
@@ -156,8 +170,8 @@ def predict(model, data_loader):
             print('-----------------------------------------------')
             print('Gold : %s ' % (r['target_sentence']))
             print('-----------------------------------------------')
-            print('Span : %s ' % (r['confused_span']))
-            print('-----------------------------------------------')
+            # print('Span : %s ' % (r['confused_span']))
+            # print('-----------------------------------------------')
             print('Prob : %s ' % (r['output_probs']))
             print('===============================================')
             
@@ -170,8 +184,8 @@ def predict(model, data_loader):
             f.write('-----------------------------------------------\n')
             f.write('Gold : %s \n' % (r['target_sentence']))
             f.write('-----------------------------------------------\n')
-            f.write('Span : %s \n' % (r['confused_span']))
-            f.write('-----------------------------------------------\n')
+            # f.write('Span : %s \n' % (r['confused_span']))
+            # f.write('-----------------------------------------------\n')
             f.write('Prob : %s \n' % (r['output_probs']))
             f.write('===============================================\n')
         

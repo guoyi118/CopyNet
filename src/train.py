@@ -3,15 +3,18 @@
 import argparse
 import os
 import sys
+os.environ['CUDA_LAUNCH_BLOCKING']= '1'
+sys.path.append('/home/sdq/GitHub/CopyNet')
+import datasets
+
 import json
 import torch
 import logging
 import subprocess
-
+# from src.sari import Sari
 import numpy as np
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from torchsummary import summary
 
 from utils import *
 from model import CopyNet
@@ -50,7 +53,7 @@ def add_train_args(parser):
     runtime.add_argument('--random-seed', type=int, default=1013,
                          help=('Random seed for all numpy/torch/cuda '
                                'operations (for reproducibility)'))
-    runtime.add_argument('--num-epochs', type=int, default=40,
+    runtime.add_argument('--num-epochs', type=int, default=15,
                          help='Train data iterations')
     runtime.add_argument('--batch-size', type=int, default=32,
                          help='Batch size for training')
@@ -197,6 +200,9 @@ def train(args, data_loader, model, global_stats):
     # Initialize meters + timers
     train_loss = AverageMeter()
     epoch_time = Timer()
+    sari = datasets.load_metric("sari")
+    # asari = Sari()
+    # print(asari.compute(sources=['i like tom'],predictions=['i like tom'],references=[['i like mnday','i like mnday']]))
     
     for batch_idx, (input_idxs, target_idxs, input_tokens, target_tokens) in enumerate(data_loader):
         # input_idxs and target_idxs have dim (batch_size x max_len)
@@ -222,7 +228,7 @@ def train(args, data_loader, model, global_stats):
         
         model.updates += 1
         
-        train_loss.update(batch_loss[0], batch_size)
+        train_loss.update(batch_loss, batch_size)
         
         if batch_idx % args.display_iter == 0:
             logger.info('train: Epoch = %d | iter = %d/%d | ' %
@@ -270,7 +276,7 @@ def validate(args, data_loader, model, vocab, global_stats):
             flattened_log_probs = output_log_probs.view(batch_size * model.max_length, -1)
             batch_losses = model.citerion(flattened_log_probs, target_variable.contiguous().view(-1))
 
-            val_loss.update(batch_losses[0], batch_size)
+            val_loss.update(batch_losses, batch_size)
         
     bleu_score = corpus_bleu(all_target_seqs, all_output_seqs, smoothing_function=SmoothingFunction().method1)
     
@@ -278,9 +284,12 @@ def validate(args, data_loader, model, vocab, global_stats):
                 (global_stats['epoch'], val_loss.avg * 100, bleu_score * 100) +
                 '| examples = %d | valid time = %.2f (s)' %
                 (len(all_output_seqs), eval_time.time()))
-    
-    if args.display_samples:
-        for sentence_input, sentence_pred, sentence_gold in zip(all_input_seqs[-5:], all_output_seqs[-5:], all_target_seqs[-5:]):
+    correct = 0
+    wrong = 0
+    sari_list = []
+    sari = datasets.load_metric("sari")
+    if args.display_samples:        
+        for sentence_input, sentence_pred, sentence_gold in zip(all_input_seqs[:10], all_output_seqs[:10], all_target_seqs[:10]):
             sentence_gold = sentence_gold[0]
             
             sentence_gold = seq_to_string(np.array(sentence_gold), vocab.id2word, input_tokens=sentence_input.split(' '))
@@ -290,6 +299,18 @@ def validate(args, data_loader, model, vocab, global_stats):
             print('-----------------------------------------------')
             print('Gold : %s ' % (sentence_gold))
             print('===============================================')
+
+            if sentence_pred.replace('<s>','s') == sentence_gold:
+                correct +=1 
+            else:
+                wrong +=1
+                        
+            sari_list.append(sari.compute(sources=[sentence_input],predictions=[sentence_pred],references=[[sentence_gold]])['sari'])
+    
+    print('correct',correct)
+    print('wrong',wrong)
+    print('accuracy', correct/(correct+wrong))
+    print('sari', sum(sari_list)/len(sari_list))
 
     
     return {'bleu_score': bleu_score * 100}
@@ -375,7 +396,6 @@ if __name__ == '__main__':
     add_train_args(parser)
     args = parser.parse_args()
     set_defaults(args)
-    
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     if args.cuda:
         torch.cuda.set_device(args.gpu)
